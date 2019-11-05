@@ -73,7 +73,7 @@ static cl::opt<AnalysisType> analysisType{
                           "Yield default values for failures"),
                clEnumValN(AnalysisType::BYPASSING,
                           "returns",
-                          "Yield default values for failures")
+                          "Returns from functions with failures")
                ),
     cl::init(AnalysisType::LOGGING),
     cl::cat{toleratorCategory}};
@@ -103,6 +103,13 @@ static cl::list<string> libraries{"l",
                                   cl::desc{"Specify libraries to link against"},
                                   cl::value_desc{"library prefix"},
                                   cl::cat{toleratorCategory}};
+
+
+static cl::list<string> extras{"e",
+                               cl::Prefix,
+                               cl::desc{"Specify extra object files to link in"},
+                               cl::value_desc{"object files"},
+                               cl::cat{toleratorCategory}};
 
 
 static void
@@ -195,6 +202,10 @@ link(StringRef objectFile, StringRef outputFile) {
     report_fatal_error("Unable to find clang.");
   }
   vector<string> args{clang.get(), opt, "-o", outputFile, objectFile};
+
+  for (auto& extra : extras) {
+    args.push_back(extra);
+  }
 
   for (auto& libPath : libPaths) {
     args.push_back("-L" + libPath);
