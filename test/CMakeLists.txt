@@ -2,8 +2,9 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test)
 file(MAKE_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
-# If you need to specify the path to clang on your system, do so here
+# If you need to specify the paths to clang or opt on your system, do so here
 set(CLANG "clang")
+set(OPT "opt")
 
 
 add_library(doctest-main OBJECT
@@ -23,7 +24,7 @@ foreach(c_file ${c_files})
   
   set(OUT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/ll/${testcase}.ll")
   add_custom_command(OUTPUT ${OUT_PATH}
-    COMMAND ${CLANG} -emit-llvm -S ${c_file} -o ${OUT_PATH}
+    COMMAND ${CLANG} -emit-llvm -S ${c_file} -o - | ${OPT} -mem2reg -S -o ${OUT_PATH}
     DEPENDS ${c_file}
     BYPRODUCTS ${OUT_PATH}
     COMMENT "Compiling to .ll: ${OUT_PATH}"
@@ -84,14 +85,21 @@ function(add_simple_system_target name policy)
 endfunction(add_simple_system_target)
 
 
-function(add_system_test system_target policy)
-  set(TEST_ID "system--${policy}--${system_target}")
-  set(OUT_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TEST_ID}")
+set(SYSTEM_TEST_COUNT 0)
+
+function(add_system_test system_target policy increase_count)
+  set(TEST_PROGRAM "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/system--${policy}--${system_target}")
+  set(TEST_ID "system--${SYSTEM_TEST_COUNT}--${policy}--${system_target}")
   add_test(NAME "${TEST_ID}"
-    COMMAND ${OUT_PATH} ${ARGN}
+    COMMAND ${TEST_PROGRAM} ${ARGN}
     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
   )
   set_tests_properties("${TEST_ID}" PROPERTIES LABELS "${testcase} ${policy}")
+
+  if (increase_count)
+    math(EXPR SYSTEM_TEST_COUNT "${SYSTEM_TEST_COUNT}+1")
+  endif()
+  set(SYSTEM_TEST_COUNT ${SYSTEM_TEST_COUNT} PARENT_SCOPE)
 endfunction(add_system_test)
 
 
@@ -112,10 +120,11 @@ endfunction(simple_all_policies_system_target)
 
 
 function(simple_all_policies_system_test name)
-  add_system_test(${name} log ${ARGN})
-  add_system_test(${name} ignore ${ARGN})
-  add_system_test(${name} defaults ${ARGN})
-  add_system_test(${name} returns ${ARGN})
+  add_system_test(${name} log NO ${ARGN})
+  add_system_test(${name} ignore NO ${ARGN})
+  add_system_test(${name} defaults NO ${ARGN})
+  add_system_test(${name} returns YES ${ARGN})
+  set(SYSTEM_TEST_COUNT ${SYSTEM_TEST_COUNT} PARENT_SCOPE)
 endfunction(simple_all_policies_system_test)
 
 
@@ -123,6 +132,30 @@ simple_all_policies_unit_test(signed-int-division)
 simple_all_policies_unit_test(signed-char-division)
 simple_all_policies_unit_test(unsigned-char-division)
 
+simple_all_policies_unit_test(free-middle)
+simple_all_policies_unit_test(free-local)
+simple_all_policies_unit_test(free-global)
+simple_all_policies_unit_test(free-wild)
+simple_all_policies_unit_test(free-twice)
+
+simple_all_policies_unit_test(read-local-byte-array)
+simple_all_policies_unit_test(store-local-byte-array)
+
+simple_all_policies_unit_test(read-malloc-byte)
+simple_all_policies_unit_test(store-malloc-byte)
+
+simple_all_policies_unit_test(read-global-byte)
+simple_all_policies_unit_test(store-global-byte)
+
+simple_all_policies_unit_test(read-malloc-overlap)
+
+simple_all_policies_unit_test(read-malloc-after-free)
+simple_all_policies_unit_test(read-local-after-return)
+
+simple_all_policies_unit_test(read-failure-propagates)
+
+###### Interaction!
+# Invalid read causes zero return and division by 0, which is used as an index.
 
 simple_all_policies_system_target(local-arrays)
 simple_all_policies_system_test(local-arrays a b c d e f g h i j)
