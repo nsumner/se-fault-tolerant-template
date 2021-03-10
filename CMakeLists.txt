@@ -1,11 +1,11 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.13)
 project(tolerator)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 list(APPEND CMAKE_MODULE_PATH "${LLVM_DIR}")
 
 set(PACKAGE_NAME tolerator)
-set(PACKAGE_VERSION 0.1)
+set(PACKAGE_VERSION 0.2)
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
 set(PACKAGE_BUGREPORT "wsumner@sfu.ca")
 
@@ -14,16 +14,18 @@ if (NOT CMAKE_BUILD_TYPE)
       STRING "Build type (default Debug):" FORCE)
 endif()
 
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-rtti -Wall")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-rtti -Wall \
-        -fno-omit-frame-pointer")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+add_compile_options(
+  "$<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-fno-rtti;-Wall>"
+  "$<$<AND:$<CXX_COMPILER_ID:GNU,Clang,AppleClang>,$<CONFIG:DEBUG>>:-fno-omit-frame-pointer;-O0;-g>"
+)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/lib")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/lib")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/out/bin")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/out/lib")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/out/lib")
 
 ############## LLVM CONFIGURATION #################
 
@@ -35,13 +37,6 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 # We incorporate the CMake features provided by LLVM:
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(AddLLVM)
-
-option(LLVM_ENABLE_CXX1Z  "Enable C++17" ON)
-
-#option(LLVM_INCLUDE_TOOLS "Generate build targets for the LLVM tools." ON)
-#option(LLVM_BUILD_TOOLS
-#  "Build the LLVM tools. If OFF, just generate build targets." ON
-#)
 
 message("LLVM STATUS:
   Definitions ${LLVM_DEFINITIONS}
