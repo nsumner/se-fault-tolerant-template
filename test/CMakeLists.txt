@@ -53,7 +53,7 @@ function(add_simple_unit_test unit_name policy)
   set(OUT_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TEST_ID}")
   add_custom_command(OUTPUT ${OUT_PATH}
     COMMAND "$<TARGET_FILE:tolerator>" --${policy} ${CMAKE_CURRENT_SOURCE_DIR}/ll/${unit_name}.ll -o ${OUT_PATH} -e $<TARGET_OBJECTS:doctest-main> -e $<TARGET_OBJECTS:unit-${unit_name}>
-    DEPENDS ${unit_name}_ll unit-${unit_name} doctest-main
+    DEPENDS ${unit_name}_ll unit-${unit_name} doctest-main tolerator-rt
     BYPRODUCTS ${OUT_PATH}
     COMMENT "Instrumenting test for ${OUT_PATH}"
     VERBATIM
@@ -75,7 +75,7 @@ function(add_simple_system_target name policy)
   set(OUT_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TEST_ID}")
   add_custom_command(OUTPUT ${OUT_PATH}
     COMMAND "$<TARGET_FILE:tolerator>" --${policy} ${CMAKE_CURRENT_SOURCE_DIR}/ll/${name}.ll -o ${OUT_PATH}
-    DEPENDS ${name}_ll
+    DEPENDS ${name}_ll tolerator-rt
     BYPRODUCTS ${OUT_PATH}
     COMMENT "Instrumenting test for ${OUT_PATH}"
     VERBATIM

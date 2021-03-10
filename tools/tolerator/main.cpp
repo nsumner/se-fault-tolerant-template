@@ -281,8 +281,8 @@ prepareLinkingPaths(SmallString<32> invocationPath) {
 // runtime library somehow, so just build in the path to the temporary one.
 #ifdef CMAKE_INSTALL_PREFIX
   libPaths.push_back(CMAKE_INSTALL_PREFIX "/lib");
-#elif defined(CMAKE_TEMP_LIBRARY_PATH)
-  libPaths.push_back(CMAKE_TEMP_LIBRARY_PATH);
+#elif defined(CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
+  libPaths.push_back(CMAKE_ARCHIVE_OUTPUT_DIRECTORY);
 #elif defined(TEMP_LIBRARY_PATH)
   // This is a bit of a hack
   libPaths.push_back(TEMP_LIBRARY_PATH "/Debug+Asserts/lib/");
