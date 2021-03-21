@@ -31,10 +31,10 @@ else()
   )
 endif()
 
-set_target_properties(tolerator
-                      PROPERTIES
-                      LINKER_LANGUAGE CXX
-                      PREFIX ""
+set_target_properties(tolerator PROPERTIES
+  LINKER_LANGUAGE CXX
+  CXX_STANDARD 20
+  PREFIX ""
 )
 
 install(TARGETS tolerator
