@@ -15,8 +15,10 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/MC/SubtargetFeature.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CodeGen.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/FormattedStream.h"
@@ -27,7 +29,6 @@
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
@@ -123,7 +124,7 @@ compile(Module& m, StringRef outputPath) {
   Triple triple        = Triple(m.getTargetTriple());
   Target const* target = TargetRegistry::lookupTarget(codegen::getMArch(), triple, err);
   if (!target) {
-    report_fatal_error("Unable to find target:\n " + err);
+    report_fatal_error(Twine{"Unable to find target:\n " + err});
   }
 
   CodeGenOpt::Level level = CodeGenOpt::Default;
@@ -138,26 +139,34 @@ compile(Module& m, StringRef outputPath) {
   }
 
   string FeaturesStr;
-  TargetOptions options = llvm::codegen::InitTargetOptionsFromCodeGenFlags();
+  TargetOptions options = codegen::InitTargetOptionsFromCodeGenFlags(triple);
+  auto relocationModel = codegen::getExplicitRelocModel();
+  auto codeModel = llvm::codegen::getExplicitCodeModel();
+  if (!relocationModel) {
+    // Modern distriutions default to PIC, so override if not set.
+    // TODO: Recheck defaults in next LLVM version.
+    relocationModel = llvm::Reloc::Model::PIC_;
+  }
+
   unique_ptr<TargetMachine> machine(
       target->createTargetMachine(triple.getTriple(),
                                   codegen::getCPUStr(),
                                   codegen::getFeaturesStr(),
                                   options,
-                                  llvm::codegen::getRelocModel(),
-                                  llvm::NoneType::None,
+                                  relocationModel,
+                                  codeModel,
                                   level));
   assert(machine && "Could not allocate target machine!");
 
-  if (llvm::codegen::getFloatABIForCalls() != FloatABI::Default) {
-    options.FloatABIType = llvm::codegen::getFloatABIForCalls();
+  if (auto floatABI = codegen::getFloatABIForCalls(); floatABI != FloatABI::Default) {
+    options.FloatABIType = floatABI;
   }
 
   std::error_code errc;
   auto out =
-      std::make_unique<ToolOutputFile>(outputPath, errc, sys::fs::F_None);
+      std::make_unique<ToolOutputFile>(outputPath, errc, sys::fs::OF_None);
   if (!out) {
-    report_fatal_error("Unable to create file:\n " + errc.message());
+    report_fatal_error(Twine{"Unable to create file:\n " + errc.message()});
   }
 
   // Build up all of the passes that we want to do to the module.
@@ -259,7 +268,7 @@ generateBinary(Module& m, StringRef outputFilename) {
 static void
 saveModule(Module const& m, StringRef filename) {
   std::error_code errc;
-  raw_fd_ostream out(filename.data(), errc, sys::fs::F_None);
+  raw_fd_ostream out(filename.data(), errc, sys::fs::OF_None);
 
   if (errc) {
     report_fatal_error("error saving llvm module to '" + filename + "': \n"
@@ -284,7 +293,7 @@ prepareLinkingPaths(SmallString<32> invocationPath) {
 #elif defined(CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
   libPaths.push_back(CMAKE_ARCHIVE_OUTPUT_DIRECTORY);
 #elif defined(TEMP_LIBRARY_PATH)
-  // This is a bit of a hack
+  // This is a bit of a hack from the old LLVM build system
   libPaths.push_back(TEMP_LIBRARY_PATH "/Debug+Asserts/lib/");
   libPaths.push_back(TEMP_LIBRARY_PATH "/Release+Asserts/lib/");
   libPaths.push_back(TEMP_LIBRARY_PATH "/Debug/lib/");

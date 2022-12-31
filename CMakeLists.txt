@@ -1,11 +1,11 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.19)
 project(tolerator)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 list(APPEND CMAKE_MODULE_PATH "${LLVM_DIR}")
 
 set(PACKAGE_NAME tolerator)
-set(PACKAGE_VERSION 0.2)
+set(PACKAGE_VERSION 0.3)
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
 set(PACKAGE_BUGREPORT "wsumner@sfu.ca")
 
@@ -16,7 +16,7 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_compile_options(
-  "$<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-fno-rtti;-Wall>"
+  "$<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-fno-rtti;-Wall;-Wextra;-Wno-unused-parameter>"
   "$<$<AND:$<CXX_COMPILER_ID:GNU,Clang,AppleClang>,$<CONFIG:DEBUG>>:-fno-omit-frame-pointer;-O0;-g>"
 )
 
