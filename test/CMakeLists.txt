@@ -25,7 +25,7 @@ endif()
 add_library(doctest-main OBJECT
   "doctest.cpp"
 )
-
+set_property(TARGET doctest-main PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # First, we traverse all files in `c`, adding targets that produce bitcode
 # in the `ll` directory. Each unit test will analyze this bitcode, linking in
@@ -61,6 +61,9 @@ foreach(unit_file ${unit_files})
   target_include_directories(unit-${testcase}
     PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}
+  )
+  set_target_properties(unit-${testcase} PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
   )
 endforeach()
 
