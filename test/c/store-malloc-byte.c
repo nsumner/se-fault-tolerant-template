@@ -1,5 +1,6 @@
 
 #include<inttypes.h>
+#include<stdlib.h>
 
 uint64_t
 storeByte(uint32_t index, uint8_t value) {

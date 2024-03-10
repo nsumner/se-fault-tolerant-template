@@ -1,5 +1,6 @@
 
 #include<inttypes.h>
+#include<stdlib.h>
 
 uint8_t global[5] = {3, 5, 7, 9, 11};
 

@@ -4,7 +4,7 @@ file(MAKE_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 # If you need to specify the paths to clang or opt on your system, do so here
 find_program(CLANG
-  NAMES clang-15 clang
+  NAMES clang-17 clang
   # PATHS # Add custom paths here
   DOC "Clang compiler"
 )
@@ -13,7 +13,7 @@ if (NOT CLANG)
 endif()
 
 find_program(OPT
-  NAMES opt-15 opt
+  NAMES opt-17 opt
   # PATHS # Add custom paths here
   DOC "LLVM opt utility"
 )
@@ -25,6 +25,7 @@ endif()
 add_library(doctest-main OBJECT
   "doctest.cpp"
 )
+target_compile_features(doctest-main PUBLIC cxx_std_20)
 set_property(TARGET doctest-main PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # First, we traverse all files in `c`, adding targets that produce bitcode
@@ -39,7 +40,7 @@ foreach(c_file ${c_files})
 
   set(OUT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/ll/${testcase}.ll")
   add_custom_command(OUTPUT ${OUT_PATH}
-    COMMAND ${CLANG} -emit-llvm -S ${c_file} -o - | ${OPT} -mem2reg -S -o ${OUT_PATH}
+    COMMAND ${CLANG} -emit-llvm -S ${c_file} -o - | ${OPT} -passes=mem2reg -S -o ${OUT_PATH}
     DEPENDS ${c_file}
     COMMENT "Compiling to .ll: ${OUT_PATH}"
     VERBATIM
@@ -94,6 +95,7 @@ function(add_simple_unit_test unit_name policy)
   set_tests_properties("${TEST_ID}" PROPERTIES
     FIXTURES_REQUIRED instrumentation_phase
     LABELS "${testcase} ${policy}"
+    TIMEOUT 30
   )
 endfunction(add_simple_unit_test)
 
@@ -128,6 +130,7 @@ function(add_system_test system_target policy increase_count)
   set_tests_properties("${TEST_ID}" PROPERTIES
     FIXTURES_REQUIRED instrumentation_phase
     LABELS "${testcase} ${policy}"
+    TIMEOUT 30
   )
 
   if (increase_count)
