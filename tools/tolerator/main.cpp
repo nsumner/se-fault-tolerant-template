@@ -1,3 +1,4 @@
+// 4e91f891e8c74607adf501dbeaa18a1d
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -16,6 +17,7 @@
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Pass.h"
+#include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileUtilities.h"
@@ -118,7 +120,7 @@ static codegen::RegisterCodeGenFlags cfg;
 
 
 static void
-compile(Module& m, StringRef outputPath) {
+compile(Module& m, std::string_view outputPath) {
   string err;
 
   Triple triple        = Triple(m.getTargetTriple());
@@ -149,7 +151,7 @@ compile(Module& m, StringRef outputPath) {
   }
 
   unique_ptr<TargetMachine> machine(
-      target->createTargetMachine(triple.getTriple(),
+      target->createTargetMachine(triple,
                                   codegen::getCPUStr(),
                                   codegen::getFeaturesStr(),
                                   options,
@@ -163,9 +165,8 @@ compile(Module& m, StringRef outputPath) {
   }
 
   std::error_code errc;
-  auto out =
-      std::make_unique<ToolOutputFile>(outputPath, errc, sys::fs::OF_None);
-  if (!out) {
+  auto out = std::make_unique<ToolOutputFile>(outputPath, errc, sys::fs::OF_None);
+  if (errc) {
     report_fatal_error(Twine{"Unable to create file:\n " + errc.message()});
   }
 
@@ -205,7 +206,7 @@ compile(Module& m, StringRef outputPath) {
 
 
 static void
-link(StringRef objectFile, StringRef outputFile) {
+link(std::string_view objectFile, std::string_view outputFile) {
   auto clang = findProgramByName("clang++");
   string opt("-O");
   opt += optLevel;
@@ -213,17 +214,17 @@ link(StringRef objectFile, StringRef outputFile) {
   if (!clang) {
     report_fatal_error("Unable to find clang.");
   }
-  vector<string> args{clang.get(), opt, "-o", outputFile.str(), objectFile.str()};
+  vector<string> args{clang.get(), opt, "-o", std::string(outputFile), std::string(objectFile)};
 
-  for (auto& extra : extras) {
+  for (const auto& extra : extras) {
     args.push_back(extra);
   }
 
-  for (auto& libPath : libPaths) {
+  for (const auto& libPath : libPaths) {
     args.push_back("-L" + libPath);
   }
 
-  for (auto& library : libraries) {
+  for (const auto& library : libraries) {
     args.push_back("-l" + library);
   }
 
@@ -231,9 +232,6 @@ link(StringRef objectFile, StringRef outputFile) {
   charArgs.reserve(args.size());
   for (auto& arg : args) {
     charArgs.emplace_back(arg);
-  }
-
-  for (auto& arg : args) {
     outs() << arg.c_str() << " ";
   }
   outs() << "\n";
@@ -255,18 +253,19 @@ link(StringRef objectFile, StringRef outputFile) {
 
 
 static void
-generateBinary(Module& m, StringRef outputFilename) {
+generateBinary(Module& m, std::string_view outputFilename) {
   // Compiling to native should allow things to keep working even when the
   // version of clang on the system and the version of LLVM used to compile
   // the tool don't quite match up.
-  string objectFile = outputFilename.str() + ".o";
-  compile(m, objectFile);
-  link(objectFile, outputFilename);
+  SmallString<256> objectFile(outputFilename);
+  objectFile.append(".o");
+  compile(m, objectFile.str());
+  link(objectFile.str(), outputFilename);
 }
 
 
 static void
-saveModule(Module const& m, StringRef filename) {
+saveModule(Module const& m, std::string_view filename) {
   std::error_code errc;
   raw_fd_ostream out(filename.data(), errc, sys::fs::OF_None);
 
@@ -312,15 +311,26 @@ instrument(Module& m, AnalysisType analysisType) {
   cl::AddExtraVersionPrinter(TargetRegistry::printRegisteredTargetsForVersion);
 
   if (outFile.getValue().empty()) {
-    errs() << "-o command line option must be specified.\n";
-    exit(-1);
+    report_fatal_error("-o command line option must be specified.\n");
   }
 
   // Build up all of the passes that we want to run on the module.
-  legacy::PassManager pm;
-  pm.add(new tolerator::Tolerator(analysisType));
-  pm.add(createVerifierPass());
-  pm.run(m);
+  LoopAnalysisManager lam;
+  FunctionAnalysisManager fam;
+  CGSCCAnalysisManager cgam;
+  ModuleAnalysisManager mam;
+
+  PassBuilder pb;
+  pb.registerModuleAnalyses(mam);
+  pb.registerCGSCCAnalyses(cgam);
+  pb.registerFunctionAnalyses(fam);
+  pb.registerLoopAnalyses(lam);
+  pb.crossRegisterProxies(lam, fam, cgam, mam);
+
+  ModulePassManager mpm;
+  mpm.addPass(tolerator::Tolerator(analysisType));
+  mpm.addPass(VerifierPass());
+  mpm.run(m, mam);
 
   generateBinary(m, outFile);
   saveModule(m, outFile + ".tolerator.bc");
@@ -346,7 +356,7 @@ main(int argc, char** argv) {
   if (!module.get()) {
     errs() << "Error reading bitcode file: " << inPath << "\n";
     err.print(argv[0], errs());
-    return -1;
+    return EXIT_FAILURE;
   }
 
   prepareLinkingPaths(StringRef(argv[0]));

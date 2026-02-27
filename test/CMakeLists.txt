@@ -4,7 +4,7 @@ file(MAKE_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 # If you need to specify the paths to clang or opt on your system, do so here
 find_program(CLANG
-  NAMES clang-17 clang
+  NAMES clang-21 clang
   # PATHS # Add custom paths here
   DOC "Clang compiler"
 )
@@ -13,7 +13,7 @@ if (NOT CLANG)
 endif()
 
 find_program(OPT
-  NAMES opt-17 opt
+  NAMES opt-21 opt
   # PATHS # Add custom paths here
   DOC "LLVM opt utility"
 )
@@ -25,7 +25,7 @@ endif()
 add_library(doctest-main OBJECT
   "doctest.cpp"
 )
-target_compile_features(doctest-main PUBLIC cxx_std_20)
+target_compile_features(doctest-main PUBLIC cxx_std_23)
 set_property(TARGET doctest-main PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # First, we traverse all files in `c`, adding targets that produce bitcode
@@ -93,10 +93,18 @@ function(add_simple_unit_test unit_name policy)
     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
   )
   set_tests_properties("${TEST_ID}" PROPERTIES
-    FIXTURES_REQUIRED instrumentation_phase
+    FIXTURES_REQUIRED instrumentation_phase_${TEST_ID}
     LABELS "${testcase} ${policy}"
     TIMEOUT 30
   )
+
+  add_test(NAME "instrument_test_${TEST_ID}"
+    COMMAND "${CMAKE_COMMAND}"
+      --build "${CMAKE_BINARY_DIR}"
+      --config "$<CONFIG>"
+      --target ${INSTRUMENTATION_TARGETS}
+  )
+  set_tests_properties("instrument_test_${TEST_ID}" PROPERTIES FIXTURES_SETUP instrumentation_phase_${TEST_ID})
 endfunction(add_simple_unit_test)
 
 
@@ -128,10 +136,18 @@ function(add_system_test system_target policy increase_count)
     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
   )
   set_tests_properties("${TEST_ID}" PROPERTIES
-    FIXTURES_REQUIRED instrumentation_phase
+    FIXTURES_REQUIRED instrumentation_phase_${TEST_ID}
     LABELS "${testcase} ${policy}"
     TIMEOUT 30
   )
+
+  add_test(NAME "instrument_test_${TEST_ID}"
+    COMMAND "${CMAKE_COMMAND}"
+      --build "${CMAKE_BINARY_DIR}"
+      --config "$<CONFIG>"
+      --target ${INSTRUMENTATION_TARGETS}
+  )
+  set_tests_properties("instrument_test_${TEST_ID}" PROPERTIES FIXTURES_SETUP instrumentation_phase_${TEST_ID})
 
   if (increase_count)
     math(EXPR SYSTEM_TEST_COUNT "${SYSTEM_TEST_COUNT}+1")
@@ -198,11 +214,3 @@ simple_all_policies_unit_test(read-failure-propagates)
 
 simple_all_policies_system_target(local-arrays)
 simple_all_policies_system_test(local-arrays a b c d e f g h i j)
-
-add_test(NAME "instrument_tests"
-  COMMAND "${CMAKE_COMMAND}"
-    --build "${CMAKE_BINARY_DIR}"
-    --config "$<CONFIG>"
-    --target ${INSTRUMENTATION_TARGETS}
-)
-set_tests_properties("instrument_tests" PROPERTIES FIXTURES_SETUP instrumentation_phase)

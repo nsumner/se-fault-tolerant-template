@@ -1,3 +1,4 @@
+// 4e91f891e8c74607adf501dbeaa18a1d
 
 #pragma once
 
@@ -21,13 +22,15 @@ enum class AnalysisType {
 };
 
 
-struct Tolerator : public llvm::ModulePass {
-  static char ID;
+struct Tolerator : public llvm::PassInfoMixin<Tolerator> {
 
-  Tolerator(AnalysisType analysisType) : llvm::ModulePass(ID) {}
+  Tolerator(AnalysisType analysisType)
+    : analysisType{analysisType}
+      { }
 
-  bool runOnModule(llvm::Module& m) override;
+  llvm::PreservedAnalyses run(llvm::Module &m, llvm::ModuleAnalysisManager &mam);
 
+  AnalysisType analysisType;
 };
 
 

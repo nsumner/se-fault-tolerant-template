@@ -39,7 +39,7 @@ else()
   )
 endif()
 
-target_compile_features(tolerator PUBLIC cxx_std_20)
+target_compile_features(tolerator PUBLIC cxx_std_23)
 set_target_properties(tolerator PROPERTIES
   LINKER_LANGUAGE CXX
   PREFIX ""

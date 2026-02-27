@@ -14,6 +14,6 @@ TEST_CASE("read local byte valid") {
 
 
 TEST_CASE("read local byte invalid") {
-  CHECK(0 == readByte(9));
+  CHECK(0 == readByte(13));
 }
 
