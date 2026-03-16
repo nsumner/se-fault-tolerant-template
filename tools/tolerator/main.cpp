@@ -107,6 +107,9 @@ static cl::list<string> libraries{"l",
                                   cl::value_desc{"library prefix"},
                                   cl::cat{toleratorCategory}};
 
+static cl::opt<bool> emitIR{"emit-llvm",
+                            cl::desc{"Emit LLVM IR"},
+                            cl::cat{toleratorCategory}};
 
 static cl::list<string> extras{"e",
                                cl::Prefix,
@@ -331,6 +334,10 @@ instrument(Module& m, AnalysisType analysisType) {
   mpm.addPass(tolerator::Tolerator(analysisType));
   mpm.addPass(VerifierPass());
   mpm.run(m, mam);
+
+  if (emitIR) {
+    m.print(llvm::errs(), nullptr);
+  }
 
   generateBinary(m, outFile);
   saveModule(m, outFile + ".tolerator.bc");
